@@ -612,8 +612,8 @@ FLATBUFFERS_FINAL_CLASS
   /// be used.
   explicit FlatBufferBuilder(uoffset_t initial_size = 1024,
                              const simple_allocator *allocator = nullptr)
-      : buf_(initial_size, allocator ? *allocator : default_allocator),
-        nested(false), finished(false), minalign_(1), force_defaults_(false),
+      : buf_(initial_size, allocator ? *allocator : default_allocator_),
+        nested_(false), finished_(false), minalign_(1), force_defaults_(false),
         string_pool(nullptr) {
     offsetbuf_.reserve(16);  // Avoid first few reallocs.
     vtables_.reserve(16);
@@ -629,8 +629,8 @@ FLATBUFFERS_FINAL_CLASS
   void Clear() {
     buf_.clear();
     offsetbuf_.clear();
-    nested = false;
-    finished = false;
+    nested_ = false;
+    finished_ = false;
     vtables_.clear();
     minalign_ = 1;
     if (string_pool) string_pool->clear();
@@ -682,7 +682,7 @@ FLATBUFFERS_FINAL_CLASS
     // FlatBufferBuilder::Finish with your root table.
     // If you really need to access an unfinished buffer, call
     // GetCurrentBufferPointer instead.
-    assert(finished);
+    assert(finished_);
   }
   /// @endcond
 
@@ -701,7 +701,7 @@ FLATBUFFERS_FINAL_CLASS
 
   void PushFlatBuffer(const uint8_t *bytes, size_t size) {
     PushBytes(bytes, size);
-    finished = true;
+    finished_ = true;
   }
 
   void PushBytes(const uint8_t *bytes, size_t size) {
@@ -785,14 +785,14 @@ FLATBUFFERS_FINAL_CLASS
     // Ignoring this assert may appear to work in simple cases, but the reason
     // it is here is that storing objects in-line may cause vtable offsets
     // to not fit anymore. It also leads to vtable duplication.
-    assert(!nested);
+    assert(!nested_);
   }
 
   // From generated code (or from the parser), we call StartTable/EndTable
   // with a sequence of AddElement calls in between.
   uoffset_t StartTable() {
     NotNested();
-    nested = true;
+    nested_ = true;
     return GetSize();
   }
 
@@ -801,7 +801,7 @@ FLATBUFFERS_FINAL_CLASS
   // resulting vtable offset.
   uoffset_t EndTable(uoffset_t start, voffset_t numfields) {
     // If you get this assert, a corresponding StartTable wasn't called.
-    assert(nested);
+    assert(nested_);
     // Write the vtable offset, which is the start of any Table.
     // We fill it's value later.
     auto vtableoffsetloc = PushElement<soffset_t>(0);
@@ -849,7 +849,7 @@ FLATBUFFERS_FINAL_CLASS
                 static_cast<soffset_t>(vt_use) -
                   static_cast<soffset_t>(vtableoffsetloc));
 
-    nested = false;
+    nested_ = false;
     return vtableoffsetloc;
   }
 
@@ -972,14 +972,14 @@ FLATBUFFERS_FINAL_CLASS
 
   /// @cond FLATBUFFERS_INTERNAL
   uoffset_t EndVector(size_t len) {
-    assert(nested);  // Hit if no corresponding StartVector.
-    nested = false;
+    assert(nested_);  // Hit if no corresponding StartVector.
+    nested_ = false;
     return PushElement(static_cast<uoffset_t>(len));
   }
 
   void StartVector(size_t len, size_t elemsize) {
     NotNested();
-    nested = true;
+    nested_ = true;
     PreAlign<uoffset_t>(len * elemsize);
     PreAlign(len * elemsize, elemsize);  // Just in case elemsize > uoffset_t.
   }
@@ -1207,7 +1207,7 @@ FLATBUFFERS_FINAL_CLASS
     if (size_prefix) {
       PushElement(GetSize());
     }
-    finished = true;
+    finished_ = true;
   }
 
   struct FieldLoc {
@@ -1215,7 +1215,7 @@ FLATBUFFERS_FINAL_CLASS
     voffset_t id;
   };
 
-  simple_allocator default_allocator;
+  simple_allocator default_allocator_;
 
   vector_downward buf_;
 
@@ -1223,10 +1223,10 @@ FLATBUFFERS_FINAL_CLASS
   std::vector<FieldLoc> offsetbuf_;
 
   // Ensure objects are not nested.
-  bool nested;
+  bool nested_;
 
   // Ensure the buffer is finished before it is being accessed.
-  bool finished;
+  bool finished_;
 
   std::vector<uoffset_t> vtables_;  // todo: Could make this into a map?
 
